@@ -1,0 +1,260 @@
+[
+  {
+    "entries": [
+      {
+        "benchmark": "adder",
+        "equivalent": true,
+        "est. gain": 128,
+        "iterations": 2,
+        "real gain": 256,
+        "resubs": 128,
+        "runtime": 0.171217861,
+        "size_after": 892,
+        "size_before": 1020
+      },
+      {
+        "benchmark": "bar",
+        "equivalent": true,
+        "est. gain": 384,
+        "iterations": 17,
+        "real gain": 5208,
+        "resubs": 129,
+        "runtime": 8.05443665,
+        "size_after": 2952,
+        "size_before": 3336
+      },
+      {
+        "benchmark": "max",
+        "equivalent": true,
+        "est. gain": 99,
+        "iterations": 3,
+        "real gain": 265,
+        "resubs": 96,
+        "runtime": 0.792455893,
+        "size_after": 2766,
+        "size_before": 2865
+      },
+      {
+        "benchmark": "sin",
+        "equivalent": true,
+        "est. gain": 280,
+        "iterations": 4,
+        "real gain": 1118,
+        "resubs": 241,
+        "runtime": 5.332288934,
+        "size_after": 5135,
+        "size_before": 5416
+      },
+      {
+        "benchmark": "arbiter",
+        "equivalent": true,
+        "est. gain": 0,
+        "iterations": 1,
+        "real gain": 0,
+        "resubs": 0,
+        "runtime": 1.290127629,
+        "size_after": 11839,
+        "size_before": 11839
+      },
+      {
+        "benchmark": "cavlc",
+        "equivalent": true,
+        "est. gain": 21,
+        "iterations": 3,
+        "real gain": 61,
+        "resubs": 14,
+        "runtime": 0.244452127,
+        "size_after": 672,
+        "size_before": 693
+      },
+      {
+        "benchmark": "ctrl",
+        "equivalent": true,
+        "est. gain": 80,
+        "iterations": 3,
+        "real gain": 232,
+        "resubs": 24,
+        "runtime": 0.114691721,
+        "size_after": 94,
+        "size_before": 174
+      },
+      {
+        "benchmark": "dec",
+        "equivalent": true,
+        "est. gain": 0,
+        "iterations": 1,
+        "real gain": 0,
+        "resubs": 0,
+        "runtime": 0.000756262,
+        "size_after": 304,
+        "size_before": 304
+      },
+      {
+        "benchmark": "i2c",
+        "equivalent": true,
+        "est. gain": 52,
+        "iterations": 3,
+        "real gain": 155,
+        "resubs": 39,
+        "runtime": 0.173597467,
+        "size_after": 1290,
+        "size_before": 1342
+      },
+      {
+        "benchmark": "int2float",
+        "equivalent": true,
+        "est. gain": 25,
+        "iterations": 2,
+        "real gain": 50,
+        "resubs": 20,
+        "runtime": 0.03473448,
+        "size_after": 235,
+        "size_before": 260
+      },
+      {
+        "benchmark": "priority",
+        "equivalent": true,
+        "est. gain": 507,
+        "iterations": 61,
+        "real gain": 28688,
+        "resubs": 333,
+        "runtime": 0.882019963,
+        "size_after": 471,
+        "size_before": 978
+      },
+      {
+        "benchmark": "router",
+        "equivalent": true,
+        "est. gain": 97,
+        "iterations": 3,
+        "real gain": 278,
+        "resubs": 57,
+        "runtime": 0.047749409,
+        "size_after": 160,
+        "size_before": 257
+      },
+      {
+        "benchmark": "c17",
+        "equivalent": true,
+        "est. gain": 0,
+        "iterations": 1,
+        "real gain": 0,
+        "resubs": 0,
+        "runtime": 0.000227611,
+        "size_after": 6,
+        "size_before": 6
+      },
+      {
+        "benchmark": "c432",
+        "equivalent": true,
+        "est. gain": 78,
+        "iterations": 3,
+        "real gain": 202,
+        "resubs": 30,
+        "runtime": 0.045317944,
+        "size_after": 138,
+        "size_before": 208
+      },
+      {
+        "benchmark": "c499",
+        "equivalent": true,
+        "est. gain": 6,
+        "iterations": 2,
+        "real gain": 12,
+        "resubs": 2,
+        "runtime": 0.063206914,
+        "size_after": 392,
+        "size_before": 398
+      },
+      {
+        "benchmark": "c880",
+        "equivalent": true,
+        "est. gain": 24,
+        "iterations": 2,
+        "real gain": 48,
+        "resubs": 6,
+        "runtime": 0.035329402,
+        "size_after": 301,
+        "size_before": 325
+      },
+      {
+        "benchmark": "c1355",
+        "equivalent": true,
+        "est. gain": 70,
+        "iterations": 4,
+        "real gain": 264,
+        "resubs": 55,
+        "runtime": 0.255601512,
+        "size_after": 432,
+        "size_before": 502
+      },
+      {
+        "benchmark": "c1908",
+        "equivalent": true,
+        "est. gain": 33,
+        "iterations": 3,
+        "real gain": 111,
+        "resubs": 16,
+        "runtime": 0.080333352,
+        "size_after": 303,
+        "size_before": 341
+      },
+      {
+        "benchmark": "c2670",
+        "equivalent": true,
+        "est. gain": 142,
+        "iterations": 3,
+        "real gain": 435,
+        "resubs": 86,
+        "runtime": 0.167541717,
+        "size_after": 567,
+        "size_before": 716
+      },
+      {
+        "benchmark": "c3540",
+        "equivalent": true,
+        "est. gain": 128,
+        "iterations": 4,
+        "real gain": 604,
+        "resubs": 67,
+        "runtime": 0.444302851,
+        "size_after": 872,
+        "size_before": 1024
+      },
+      {
+        "benchmark": "c5315",
+        "equivalent": true,
+        "est. gain": 367,
+        "iterations": 4,
+        "real gain": 1487,
+        "resubs": 213,
+        "runtime": 0.718579382,
+        "size_after": 1397,
+        "size_before": 1776
+      },
+      {
+        "benchmark": "c6288",
+        "equivalent": true,
+        "est. gain": 452,
+        "iterations": 2,
+        "real gain": 904,
+        "resubs": 445,
+        "runtime": 0.952524786,
+        "size_after": 1885,
+        "size_before": 2337
+      },
+      {
+        "benchmark": "c7552",
+        "equivalent": true,
+        "est. gain": 128,
+        "iterations": 4,
+        "real gain": 484,
+        "resubs": 63,
+        "runtime": 0.695002675,
+        "size_after": 1341,
+        "size_before": 1469
+      }
+    ],
+    "version": "646c27f"
+  }
+]
