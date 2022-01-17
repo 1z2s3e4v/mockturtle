@@ -82,11 +82,11 @@ struct window_rewriting_params
 
   enum
   {
-    sort_topological,
+    sort_reTopological,
     sort_nDivs,
     non_descending_gain,
     sort_gain,
-  } window_ordering = sort_topological;
+  } window_ordering = sort_gain;
 
   bool filter_cyclic_substitutions{false};
 }; /* window_rewriting_params */
@@ -270,14 +270,13 @@ public:
     // std::shuffle(std::begin(sorted_n), std::end(sorted_n), rng);
     // <<< shuffle sort n 
     
-    if (ps.window_ordering == window_rewriting_params::sort_topological){
+    if (ps.window_ordering == window_rewriting_params::sort_reTopological){
       // >>> topo sort n
       topo_view topo_ntk{ntk};
       topo_ntk.foreach_node([&]( auto n ) {
         sorted_n.push_back(n);
-        std::cout << n << std::endl;
       });
-      // std::reverse(sorted_n.begin(), sorted_n.end());
+      std::reverse(sorted_n.begin(), sorted_n.end());
       // <<< topo sort n
     }
     else {
