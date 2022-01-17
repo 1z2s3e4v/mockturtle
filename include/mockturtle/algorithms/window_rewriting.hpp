@@ -45,6 +45,10 @@
 #include <fmt/format.h>
 #include <stack>
 
+#include <algorithm>
+#include <random>
+//#include <vector>
+
 #pragma once
 
 namespace mockturtle
@@ -223,42 +227,67 @@ public:
   {
     stopwatch t( st.time_total );
 
+    /// construct the create_window_impl with ntk
     create_window_impl windowing( ntk );
     uint32_t const size = ntk.size();
-    for ( uint32_t n = 0u; n < size; ++n )
+
+    // sort nodes
+    std::vector<uint32_t> sorted_n;
+    // >>> topo sort n 
+    topo_view topo_ntk{ntk};
+    topo_ntk.foreach_node([&]( auto n ) {
+      sorted_n.push_back(n);
+    });
+    // <<< topo sort n 
+    // >>> shuffle sort n 
+    /*for ( uint32_t n = 0u; n < size; ++n ){
+      sorted_n.push_back(n);
+    }
+    auto rng = std::default_random_engine {};
+    sstd::shuffle(std::begin(sorted_n), std::end(sorted_n), rng);*/
+    // <<< shuffle sort n 
+
+    /// Algorithm M : for each node run Algorithm S
+    for ( uint32_t n_i = 0u; n_i < size; ++n_i )
     {
+      uint32_t n = sorted_n[n_i];
+      //printf("node[%d]\n", n);
       if ( ntk.is_constant( n ) || ntk.is_ci( n ) || ntk.is_dead( n ) )
       {
+        //printf("node %d is constant/ci/dead\n",n);
         continue;
       }
 
+      /// Algorithm W : Create window w with pivot n. ( W1~6 in windowing.run() )
       if ( const auto w = call_with_stopwatch( st.time_window, [&]() { return windowing.run( n, ps.cut_size, ps.num_levels ); } ) )
       {
+        /// w = window{fins, *nodes, fouts}
         ++st.num_windows;
 
+        /// window --> topo
         auto topo_win = call_with_stopwatch( st.time_topo_sort, ( [&](){
           window_view win( ntk, w->inputs, w->outputs, w->nodes );
           topo_view topo_win{win};
           return topo_win;
         }) );
-
         abc_index_list il;
         call_with_stopwatch( st.time_encode, [&]() {
           encode( il, topo_win );
         } );
 
+        /// (Algorithm M+S) Optimize the window(topo) with Abc_ResubComputeWindow
         auto il_opt = optimize( il );
         if ( !il_opt )
         {
           continue;
         }
 
+        /// Resyn finished. Get fins and fouts of window for replace ntk
         std::vector<signal> signals;
         for ( auto const& i : w->inputs )
         {
           signals.push_back( ntk.make_signal( i ) );
         }
-
         std::vector<signal> outputs;
         topo_win.foreach_co( [&]( signal const& o ){
           outputs.push_back( o );
@@ -378,11 +407,13 @@ private:
     }
     raw[1] = 0; /* fix encoding */
 
+    /// >>> Algorithm M : given a window il, resynthesizes the outputs and replace them 
     abcresub::Abc_ResubPrepareManager( 1 );
     int *new_raw = nullptr;
     int num_resubs = 0;
     uint64_t new_entries = abcresub::Abc_ResubComputeWindow( raw, ( il.size() / 2u ), 1000, -1, 0, 0, 0, 0, &new_raw, &num_resubs );
     abcresub::Abc_ResubPrepareManager( 0 );
+    /// <<< Algorithm M : given a window il, resynthesizes the outputs and replace them 
 
     if ( verbose )
     {
