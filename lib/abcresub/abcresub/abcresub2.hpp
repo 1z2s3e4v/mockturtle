@@ -186,6 +186,41 @@ inline word Gia_Rsb2ManOdcs( Gia_Rsb2Man_t * p, int iNode )
     return Res;
 }
 
+/*inline int Gia_Rsb2ManOdcs_getOdcSize( Gia_Rsb2Man_t * p, int iNode ){
+    // p->CareSet = Gia_Rsb2ManOdcs( p, iNode );
+    // p->Truth1 = p->CareSet & Vec_WrdEntry(&p->vSims, 2*iNode);
+    // p->Truth0 = p->CareSet & ~p->Truth1;
+    int nOdcSize = 0;
+    int i; word Res = 0;
+    int  * pObjs = Vec_IntArray( &p->vObjs );
+    word * pSims = Vec_WrdArray( &p->vSims );
+    for ( i = p->nPis + 1; i < p->iFirstPo; i++ )
+    {
+        if ( pObjs[2*i+0] < pObjs[2*i+1] )
+            pSims[2*i+0] = pSims[pObjs[2*i+0]] & pSims[pObjs[2*i+1]];
+        else if ( pObjs[2*i+0] > pObjs[2*i+1] )
+            pSims[2*i+0] = pSims[pObjs[2*i+0]] ^ pSims[pObjs[2*i+1]];
+        else assert( 0 );
+        pSims[2*i+1] = ~pSims[2*i+0];
+    }
+    for ( i = p->iFirstPo; i < p->nObjs; i++ )
+        pSims[2*i+0] = pSims[pObjs[2*i+0]];
+    ABC_SWAP( word, pSims[2*iNode+0], pSims[2*iNode+1] );
+    for ( i = iNode + 1; i < p->iFirstPo; i++ )
+    {
+        if ( pObjs[2*i+0] < pObjs[2*i+1] )
+            pSims[2*i+0] = pSims[pObjs[2*i+0]] & pSims[pObjs[2*i+1]];
+        else if ( pObjs[2*i+0] < pObjs[2*i+1] )
+            pSims[2*i+0] = pSims[pObjs[2*i+0]] ^ pSims[pObjs[2*i+1]];
+        else assert( 0 );
+        pSims[2*i+1] = ~pSims[2*i+0];
+    }
+    for ( i = p->iFirstPo; i < p->nObjs; i++ )
+        Res |= pSims[2*i+0] ^ pSims[pObjs[2*i+0]];
+    ABC_SWAP( word, pSims[2*iNode+0], pSims[2*iNode+1] );
+    return nOdcSize;
+}*/
+
 // marks MFFC and returns its size
 inline int Gia_Rsb2ManDeref_rec( Gia_Rsb2Man_t * p, int * pObjs, int * pRefs, int iNode )
 {
@@ -226,9 +261,12 @@ inline int Gia_Rsb2ManDivs( Gia_Rsb2Man_t * p, int iNode )
 {
     int i, iNodeLevel = 0;
     int * pRefs = Vec_IntArray( &p->vRefs );
+    /// Algorithm M3
     p->CareSet = Gia_Rsb2ManOdcs( p, iNode );
+    /// Algorithm M6
     p->Truth1 = p->CareSet & Vec_WrdEntry(&p->vSims, 2*iNode);
     p->Truth0 = p->CareSet & ~p->Truth1;
+    /// Algorithm M5-1
     Vec_PtrClear( &p->vpDivs );
     Vec_PtrPush( &p->vpDivs, &p->Truth0 );
     Vec_PtrPush( &p->vpDivs, &p->Truth1 );
@@ -239,12 +277,14 @@ inline int Gia_Rsb2ManDivs( Gia_Rsb2Man_t * p, int iNode )
         Vec_PtrPush( &p->vpDivs, Vec_WrdEntryP(&p->vSims, 2*i) );
         Vec_IntPush( &p->vDivs, i );
     }
+    /// Algorithm M4
     p->nMffc = Gia_Rsb2ManMffc( p, iNode );
     if ( p->nLevelIncrease >= 0 )
     {
         p->Level = Gia_Rsb2ManLevel(p);
         iNodeLevel = Vec_IntEntry(&p->vLevels, iNode);
     }
+    /// Algorithm M5-2
     for ( i = p->nPis + 1; i < p->iFirstPo; i++ )
     {
         if ( !pRefs[i] || (p->nLevelIncrease >= 0 && Vec_IntEntry(&p->vLevels, i) > iNodeLevel + p->nLevelIncrease) )
@@ -375,12 +415,16 @@ inline int Abc_ResubNodeToTry( Vec_Int_t * vTried, int iFirst, int iLast )
 inline int Abc_ResubComputeWindow( int * pObjs, int nObjs, int nDivsMax, int nLevelIncrease, int fUseXor, int fUseZeroCost, int fDebug, int fVerbose, int ** ppArray, int * pnResubs )
 {
     int iNode, nChanges = 0, RetValue = 0;
+    /// Algoriithm M1  
     Gia_Rsb2Man_t * p = Gia_Rsb2ManAlloc();
     Gia_Rsb2ManStart( p, pObjs, nObjs, nDivsMax, nLevelIncrease, fUseXor, fUseZeroCost, fDebug, fVerbose );
     *ppArray = NULL;
+    /// Algoriithm M2
     while ( (iNode = Abc_ResubNodeToTry(&p->vTried, p->nPis+1, p->iFirstPo)) > 0 )
     {
+        /// Algoriithm M3~M6 
         int nDivs = Gia_Rsb2ManDivs( p, iNode );
+        /// Algoriithm S
         int * pResub, nResub = Abc_ResubComputeFunction( Vec_PtrArray(&p->vpDivs), nDivs, 1, p->nMffc-1, nDivsMax, 0, fUseXor, fDebug, fVerbose, &pResub );
         if ( nResub == 0 )
             Vec_IntPush( &p->vTried, iNode );
@@ -415,5 +459,22 @@ inline int Abc_ResubComputeWindow( int * pObjs, int nObjs, int nDivsMax, int nLe
         *pnResubs = nChanges;
     return RetValue;
 }
+
+// >>> div num sort n
+
+inline int Abc_ResubComputeWindow_getDivNum( int * pObjs, int nObjs, int nDivsMax, int nLevelIncrease, int fUseXor, int fUseZeroCost, int fDebug, int fVerbose, int ** ppArray, int * pnResubs ){
+    int iNode;
+    Gia_Rsb2Man_t * p = Gia_Rsb2ManAlloc();
+    Gia_Rsb2ManStart( p, pObjs, nObjs, nDivsMax, nLevelIncrease, fUseXor, fUseZeroCost, fDebug, fVerbose );
+    int nOdcSize=0, nDivs=0;
+    /// For each node r (iNode)
+    for ( iNode = p->iFirstPo - 1; iNode >= p->nPis+1; iNode-- ){
+        //nOdcSize += Gia_Rsb2ManOdcs_getOdcSize( p, iNode );
+        nDivs += Gia_Rsb2ManDivs( p, iNode );
+    }
+    Gia_Rsb2ManFree( p );
+    return nDivs;
+}
+// <<< div num sort n <<<<<<<<<<<<<<<<<
 
 } /* abcresub */

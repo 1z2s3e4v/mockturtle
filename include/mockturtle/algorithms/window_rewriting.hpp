@@ -258,11 +258,12 @@ public:
       sorted_n.push_back(n);
     }
 
-    // >>> topo sort n 
+    // >>> topo sort n
     // topo_view topo_ntk{ntk};
     // topo_ntk.foreach_node([&]( auto n ) {
     //   sorted_n.push_back(n);
     // });
+    // std::reverse(sorted_n.begin(), sorted_n.end());
     // <<< topo sort n 
 
     // >>> shuffle sort n 
@@ -270,9 +271,36 @@ public:
     // sstd::shuffle(std::begin(sorted_n), std::end(sorted_n), rng);
     // <<< shuffle sort n 
 
+    // >>> div num sort n
+    // std::vector<int> n2divNum;
+    // for ( uint32_t n_i = 0u; n_i < size; ++n_i ){
+    //   uint32_t n = sorted_n[n_i];
+    //   if ( ntk.is_constant( n ) || ntk.is_ci( n ) || ntk.is_dead( n ) ){
+    //     n2divNum.push_back(-1);
+    //     continue;
+    //   }
+    //   if ( const auto w = call_with_stopwatch( st.time_window, [&]() { return windowing.run( n, ps.cut_size, ps.num_levels ); } ) ){
+    //     ++st.num_windows;
+    //     auto topo_win = call_with_stopwatch( st.time_topo_sort, ( [&](){
+    //       window_view win( ntk, w->inputs, w->outputs, w->nodes );
+    //       topo_view topo_win{win};
+    //       return topo_win;
+    //     }) );
+    //     abc_index_list il;
+    //     call_with_stopwatch( st.time_encode, [&]() {
+    //       encode( il, topo_win );
+    //     } );
+    //     n2divNum.push_back( get_div_num( il ) );
+    //   }
+    // } 
+    // std::sort(sorted_n.begin(),sorted_n.end(), [&](const int n_l, const int n_r){
+    //   return n2divNum[n_l] > n2divNum[n_r];
+    // });
+    // <<< div num sort n
+
     // >>> sort gain
-    for ( uint32_t n = 0u; n < size; ++n )
-    {
+    for ( uint32_t n_i = 0u; n_i < size; ++n_i ){
+      uint32_t n = sorted_n[n_i];
       if ( ntk.is_constant( n ) || ntk.is_ci( n ) || ntk.is_dead( n ) )
       {
         vWindowGain.emplace_back(0);
@@ -486,6 +514,30 @@ private:
     add_event = ntk.events().register_add_event( update_level_of_new_node );
     modified_event = ntk.events().register_modified_event( update_level_of_existing_node );
     delete_event = ntk.events().register_delete_event( update_level_of_deleted_node );
+  }
+
+  int get_div_num( abc_index_list const& il, bool verbose = false ){
+    int nDivNum = 0;
+    stopwatch t( st.time_optimize );
+    int *raw = ABC_CALLOC( int, il.size() + 1u );
+    uint64_t i = 0;
+    for ( auto const& v : il.raw() ){
+      raw[i++] = v;
+    }
+    raw[1] = 0; /* fix encoding */
+ 
+    abcresub::Abc_ResubPrepareManager( 1 );
+    int *new_raw = nullptr;
+    int num_resubs = 0;
+    nDivNum = abcresub::Abc_ResubComputeWindow_getDivNum( raw, ( il.size() / 2u ), 1000, -1, 0, 0, 0, 0, &new_raw, &num_resubs );
+    abcresub::Abc_ResubPrepareManager( 0 );
+
+    if ( raw ){
+      ABC_FREE( raw );
+      return nDivNum;
+    }else {
+      return -1;
+    }
   }
 
   /* optimize an index_list and return the new list */
