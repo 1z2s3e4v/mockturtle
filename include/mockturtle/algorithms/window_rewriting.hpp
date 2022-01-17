@@ -80,6 +80,14 @@ struct window_rewriting_params
     recompute,
   } level_update_strategy = dont_update;
 
+  enum
+  {
+    sort_topological,
+    sort_nDivs,
+    non_descending_gain,
+    sort_gain,
+  } window_ordering = sort_topological;
+
   bool filter_cyclic_substitutions{false};
 }; /* window_rewriting_params */
 
@@ -246,123 +254,134 @@ public:
     create_window_impl windowing( ntk );
 
     uint32_t current_max_gain = 0u;
+    uint32_t sort_gain_threshold = 0u;
     uint32_t const size = ntk.size();
-
-    // std::vector<substitution_data> vSubData;
-    std::vector<uint32_t> vWindowGain;
-    vWindowGain.reserve(size);
 
     // sort nodes
     std::vector<uint32_t> sorted_n;
-    for ( uint32_t n = 0u; n < size; ++n ){
-      sorted_n.push_back(n);
-    }
 
-    // >>> topo sort n
-    // topo_view topo_ntk{ntk};
-    // topo_ntk.foreach_node([&]( auto n ) {
-    //   sorted_n.push_back(n);
-    // });
-    // std::reverse(sorted_n.begin(), sorted_n.end());
-    // <<< topo sort n 
+    std::vector<uint32_t> vWindowGain;
+    vWindowGain.reserve(size);
+    
+    // std::vector<substitution_data> vSubData;
 
     // >>> shuffle sort n 
     // auto rng = std::default_random_engine {};
-    // sstd::shuffle(std::begin(sorted_n), std::end(sorted_n), rng);
+    // std::shuffle(std::begin(sorted_n), std::end(sorted_n), rng);
     // <<< shuffle sort n 
-
-    // >>> div num sort n
-    // std::vector<int> n2divNum;
-    // for ( uint32_t n_i = 0u; n_i < size; ++n_i ){
-    //   uint32_t n = sorted_n[n_i];
-    //   if ( ntk.is_constant( n ) || ntk.is_ci( n ) || ntk.is_dead( n ) ){
-    //     n2divNum.push_back(-1);
-    //     continue;
-    //   }
-    //   if ( const auto w = call_with_stopwatch( st.time_window, [&]() { return windowing.run( n, ps.cut_size, ps.num_levels ); } ) ){
-    //     ++st.num_windows;
-    //     auto topo_win = call_with_stopwatch( st.time_topo_sort, ( [&](){
-    //       window_view win( ntk, w->inputs, w->outputs, w->nodes );
-    //       topo_view topo_win{win};
-    //       return topo_win;
-    //     }) );
-    //     abc_index_list il;
-    //     call_with_stopwatch( st.time_encode, [&]() {
-    //       encode( il, topo_win );
-    //     } );
-    //     n2divNum.push_back( get_div_num( il ) );
-    //   }
-    // } 
-    // std::sort(sorted_n.begin(),sorted_n.end(), [&](const int n_l, const int n_r){
-    //   return n2divNum[n_l] > n2divNum[n_r];
-    // });
-    // <<< div num sort n
-
-    // >>> sort gain
-    for ( uint32_t n_i = 0u; n_i < size; ++n_i ){
-      uint32_t n = sorted_n[n_i];
-      if ( ntk.is_constant( n ) || ntk.is_ci( n ) || ntk.is_dead( n ) )
-      {
-        vWindowGain.emplace_back(0);
-        continue;
+    
+    if (ps.window_ordering == window_rewriting_params::sort_topological){
+      // >>> topo sort n
+      topo_view topo_ntk{ntk};
+      topo_ntk.foreach_node([&]( auto n ) {
+        sorted_n.push_back(n);
+        std::cout << n << std::endl;
+      });
+      // std::reverse(sorted_n.begin(), sorted_n.end());
+      // <<< topo sort n
+    }
+    else {
+      for ( uint32_t n = 0u; n < size; ++n ){
+        sorted_n.push_back(n);
       }
+    }
 
-      if ( const auto w = call_with_stopwatch( st.time_window, [&]() { return windowing.run( n, ps.cut_size, ps.num_levels ); } ) )
-      {
-        ++st.num_windows;
-
-        auto topo_win = call_with_stopwatch( st.time_topo_sort, ( [&](){
-          window_view win( ntk, w->inputs, w->outputs, w->nodes );
-          topo_view topo_win{win};
-          return topo_win;
-        }) );
-        abc_index_list il;
-        call_with_stopwatch( st.time_encode, [&]() {
-          encode( il, topo_win );
-        } );
-
-        auto il_opt = optimize( il );
-        if ( !il_opt )
+    if(ps.window_ordering == window_rewriting_params::sort_nDivs){
+      // >>> div num sort n
+      std::vector<int> n2divNum;
+      for ( uint32_t n_i = 0u; n_i < size; ++n_i ){
+        uint32_t n = sorted_n[n_i];
+        if ( ntk.is_constant( n ) || ntk.is_ci( n ) || ntk.is_dead( n ) ){
+          n2divNum.push_back(-1);
+          continue;
+        }
+        if ( const auto w = call_with_stopwatch( st.time_window, [&]() { return windowing.run( n, ps.cut_size, ps.num_levels ); } ) ){
+          ++st.num_windows;
+          auto topo_win = call_with_stopwatch( st.time_topo_sort, ( [&](){
+            window_view win( ntk, w->inputs, w->outputs, w->nodes );
+            topo_view topo_win{win};
+            return topo_win;
+          }) );
+          abc_index_list il;
+          call_with_stopwatch( st.time_encode, [&]() {
+            encode( il, topo_win );
+          } );
+          n2divNum.push_back( get_div_num( il ) );
+        }
+      } 
+      std::sort(sorted_n.begin(),sorted_n.end(), [&](const int n_l, const int n_r){
+        return n2divNum[n_l] > n2divNum[n_r];
+      });
+      // <<< div num sort n
+    }
+    else if(ps.window_ordering == window_rewriting_params::sort_gain){
+      // >>> sort gain
+      for ( uint32_t n_i = 0u; n_i < size; ++n_i ){
+        uint32_t n = sorted_n[n_i];
+        if ( ntk.is_constant( n ) || ntk.is_ci( n ) || ntk.is_dead( n ) )
         {
           vWindowGain.emplace_back(0);
           continue;
         }
-        vWindowGain.emplace_back(il.num_gates() - il_opt->num_gates());
-      }
-      else { vWindowGain.emplace_back(0); }
-    }
 
-    sort(sorted_n.begin(), sorted_n.end(),
-      [&](const uint32_t& a, const uint32_t& b) -> bool {
-        return vWindowGain[a] > vWindowGain[b];
-      }
-    );
-    uint32_t num_zeros = std::count(vWindowGain.begin(), vWindowGain.end(), 0);
-    uint32_t sort_gain_threshold = 0;
+        if ( const auto w = call_with_stopwatch( st.time_window, [&]() { return windowing.run( n, ps.cut_size, ps.num_levels ); } ) )
+        {
+          ++st.num_windows;
 
-    /*
-    std::cout << "gain threshold = " << sort_gain_threshold << std::endl;
-    for ( uint32_t n = 0u; n < size; ++n ){
-      if(vWindowGain[sorted_n[n]] != 0)
-        std::cout << "node (" << std::setw(5) << sorted_n[n] << ") with gain = " << vWindowGain[sorted_n[n]] << std::endl;
+          auto topo_win = call_with_stopwatch( st.time_topo_sort, ( [&](){
+            window_view win( ntk, w->inputs, w->outputs, w->nodes );
+            topo_view topo_win{win};
+            return topo_win;
+          }) );
+          abc_index_list il;
+          call_with_stopwatch( st.time_encode, [&]() {
+            encode( il, topo_win );
+          } );
+
+          auto il_opt = optimize( il );
+          if ( !il_opt )
+          {
+            vWindowGain.emplace_back(0);
+            continue;
+          }
+          vWindowGain.emplace_back(il.num_gates() - il_opt->num_gates());
+        }
+        else { vWindowGain.emplace_back(0); }
+      }
+
+      sort(sorted_n.begin(), sorted_n.end(),
+        [&](const uint32_t& a, const uint32_t& b) -> bool {
+          return vWindowGain[a] > vWindowGain[b];
+        }
+      );
+      uint32_t num_zeros = std::count(vWindowGain.begin(), vWindowGain.end(), 0);
+
+      /*
+      std::cout << "gain threshold = " << sort_gain_threshold << std::endl;
+      for ( uint32_t n = 0u; n < size; ++n ){
+        if(vWindowGain[sorted_n[n]] != 0)
+          std::cout << "node (" << std::setw(5) << sorted_n[n] << ") with gain = " << vWindowGain[sorted_n[n]] << std::endl;
+      }
+      */
+      // <<< sort gain
     }
-    */
-    // <<< sort gain
 
     /// Algorithm M : for each node run Algorithm S
     for ( uint32_t n_i = 0u; n_i < size; ++n_i )
     {
       uint32_t n = sorted_n[n_i];
-      //printf("node[%d]\n", n);
+      // printf("node[%d]\n", n);
       if ( ntk.is_constant( n ) || ntk.is_ci( n ) || ntk.is_dead( n ) )
       {
         //printf("node %d is constant/ci/dead\n",n);
         continue;
       }
       
-      // >>> sort gain
-      if ( vWindowGain[n] < sort_gain_threshold || vWindowGain[n] < 1 ) continue;
-      // <<< sort gain
+      if (ps.window_ordering == window_rewriting_params::sort_gain){
+        // >>> sort gain
+        if ( vWindowGain[n] < sort_gain_threshold || vWindowGain[n] < 1 ) continue;
+        // <<< sort gain
+      }
 
       /// Algorithm W : Create window w with pivot n. ( W1~6 in windowing.run() )
       if ( const auto w = call_with_stopwatch( st.time_window, [&]() { return windowing.run( n, ps.cut_size, ps.num_levels ); } ) )
@@ -388,11 +407,13 @@ public:
           continue;
         }
 
-        // >>> non-desending gain
-        // if ( il.num_gates() - il_opt->num_gates() < current_max_gain) continue;
-        // current_max_gain = il.num_gates() - il_opt->num_gates();
-        // std::cout << "[t] node(" << n << ") il size difference = " << il.num_gates() - il_opt->num_gates() << std::endl;
-        // <<< non-desending gain
+        if (ps.window_ordering == window_rewriting_params::non_descending_gain) {
+          // >>> non-desending gain
+          if ( il.num_gates() - il_opt->num_gates() < current_max_gain) continue;
+          current_max_gain = il.num_gates() - il_opt->num_gates();
+          // std::cout << "[t] node(" << n << ") il size difference = " << il.num_gates() - il_opt->num_gates() << std::endl;
+          // <<< non-desending gain
+        }
 
         /// Resyn finished. Get fins and fouts of window for replace ntk
         std::vector<signal> signals;
@@ -405,7 +426,6 @@ public:
           outputs.push_back( o );
         });
 
-        // vSubData.emplace_back(n, il_opt, signals, outputs);
 
         uint32_t counter{0};
         ++st.num_substitutions;
@@ -553,13 +573,13 @@ private:
     }
     raw[1] = 0; /* fix encoding */
 
-    /// >>> Algorithm M : given a window il, resynthesizes the outputs and replace them 
+    /// Algorithm M : given a window il, resynthesizes the outputs and replace them 
     abcresub::Abc_ResubPrepareManager( 1 );
     int *new_raw = nullptr;
     int num_resubs = 0;
     uint64_t new_entries = abcresub::Abc_ResubComputeWindow( raw, ( il.size() / 2u ), 1000, -1, 0, 0, 0, 0, &new_raw, &num_resubs );
     abcresub::Abc_ResubPrepareManager( 0 );
-    /// <<< Algorithm M : given a window il, resynthesizes the outputs and replace them 
+    /// Algorithm M : given a window il, resynthesizes the outputs and replace them 
 
     if ( verbose )
     {

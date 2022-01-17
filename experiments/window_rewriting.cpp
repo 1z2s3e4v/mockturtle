@@ -56,7 +56,7 @@ int main()
   experiment<std::string, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, double, bool>
     exp( "window_rewriting", "benchmark", "size_before", "size_after", "est. gain", "real gain", "resubs", "iterations", "runtime", "equivalent" );
 
-  for ( auto const& benchmark : all_benchmarks( iscas | epfl_small ) )  // iscas | epfl_small
+  for ( auto const& benchmark : all_benchmarks( ctrl ) )  // iscas | epfl_small
   {
     fmt::print( "[i] processing {}\n", benchmark );
 
