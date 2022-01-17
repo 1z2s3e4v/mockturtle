@@ -205,6 +205,21 @@ public:
   using node = typename Ntk::node;
   using signal = typename Ntk::signal;
 
+  struct substitution_data
+  {
+    substitution_data(
+      const uint32_t _n,
+      const std::optional<mockturtle::abc_index_list> _il_opt,
+      const std::vector<signal> _signals,
+      const std::vector<signal> _outputs
+    ): n(_n), il_opt(_il_opt), signals(_signals), outputs(_outputs) {}
+
+    uint32_t n;
+    std::optional<mockturtle::abc_index_list> il_opt;
+    std::vector<signal> signals;
+    std::vector<signal> outputs;
+  }; /* substitution_data */
+
 public:
   explicit window_rewriting_impl( Ntk& ntk, window_rewriting_params const& ps, window_rewriting_stats& st )
     : ntk( ntk )
@@ -229,23 +244,82 @@ public:
 
     /// construct the create_window_impl with ntk
     create_window_impl windowing( ntk );
+
+    uint32_t current_max_gain = 0u;
     uint32_t const size = ntk.size();
+
+    // std::vector<substitution_data> vSubData;
+    std::vector<uint32_t> vWindowGain;
+    vWindowGain.reserve(size);
 
     // sort nodes
     std::vector<uint32_t> sorted_n;
-    // >>> topo sort n 
-    topo_view topo_ntk{ntk};
-    topo_ntk.foreach_node([&]( auto n ) {
-      sorted_n.push_back(n);
-    });
-    // <<< topo sort n 
-    // >>> shuffle sort n 
-    /*for ( uint32_t n = 0u; n < size; ++n ){
+    for ( uint32_t n = 0u; n < size; ++n ){
       sorted_n.push_back(n);
     }
-    auto rng = std::default_random_engine {};
-    sstd::shuffle(std::begin(sorted_n), std::end(sorted_n), rng);*/
+
+    // >>> topo sort n 
+    // topo_view topo_ntk{ntk};
+    // topo_ntk.foreach_node([&]( auto n ) {
+    //   sorted_n.push_back(n);
+    // });
+    // <<< topo sort n 
+
+    // >>> shuffle sort n 
+    // auto rng = std::default_random_engine {};
+    // sstd::shuffle(std::begin(sorted_n), std::end(sorted_n), rng);
     // <<< shuffle sort n 
+
+    // >>> sort gain
+    for ( uint32_t n = 0u; n < size; ++n )
+    {
+      if ( ntk.is_constant( n ) || ntk.is_ci( n ) || ntk.is_dead( n ) )
+      {
+        vWindowGain.emplace_back(0);
+        continue;
+      }
+
+      if ( const auto w = call_with_stopwatch( st.time_window, [&]() { return windowing.run( n, ps.cut_size, ps.num_levels ); } ) )
+      {
+        ++st.num_windows;
+
+        auto topo_win = call_with_stopwatch( st.time_topo_sort, ( [&](){
+          window_view win( ntk, w->inputs, w->outputs, w->nodes );
+          topo_view topo_win{win};
+          return topo_win;
+        }) );
+        abc_index_list il;
+        call_with_stopwatch( st.time_encode, [&]() {
+          encode( il, topo_win );
+        } );
+
+        auto il_opt = optimize( il );
+        if ( !il_opt )
+        {
+          vWindowGain.emplace_back(0);
+          continue;
+        }
+        vWindowGain.emplace_back(il.num_gates() - il_opt->num_gates());
+      }
+      else { vWindowGain.emplace_back(0); }
+    }
+
+    sort(sorted_n.begin(), sorted_n.end(),
+      [&](const uint32_t& a, const uint32_t& b) -> bool {
+        return vWindowGain[a] > vWindowGain[b];
+      }
+    );
+    uint32_t num_zeros = std::count(vWindowGain.begin(), vWindowGain.end(), 0);
+    uint32_t sort_gain_threshold = 0;
+
+    /*
+    std::cout << "gain threshold = " << sort_gain_threshold << std::endl;
+    for ( uint32_t n = 0u; n < size; ++n ){
+      if(vWindowGain[sorted_n[n]] != 0)
+        std::cout << "node (" << std::setw(5) << sorted_n[n] << ") with gain = " << vWindowGain[sorted_n[n]] << std::endl;
+    }
+    */
+    // <<< sort gain
 
     /// Algorithm M : for each node run Algorithm S
     for ( uint32_t n_i = 0u; n_i < size; ++n_i )
@@ -257,6 +331,10 @@ public:
         //printf("node %d is constant/ci/dead\n",n);
         continue;
       }
+      
+      // >>> sort gain
+      if ( vWindowGain[n] < sort_gain_threshold || vWindowGain[n] < 1 ) continue;
+      // <<< sort gain
 
       /// Algorithm W : Create window w with pivot n. ( W1~6 in windowing.run() )
       if ( const auto w = call_with_stopwatch( st.time_window, [&]() { return windowing.run( n, ps.cut_size, ps.num_levels ); } ) )
@@ -282,6 +360,12 @@ public:
           continue;
         }
 
+        // >>> non-desending gain
+        // if ( il.num_gates() - il_opt->num_gates() < current_max_gain) continue;
+        // current_max_gain = il.num_gates() - il_opt->num_gates();
+        // std::cout << "[t] node(" << n << ") il size difference = " << il.num_gates() - il_opt->num_gates() << std::endl;
+        // <<< non-desending gain
+
         /// Resyn finished. Get fins and fouts of window for replace ntk
         std::vector<signal> signals;
         for ( auto const& i : w->inputs )
@@ -292,6 +376,8 @@ public:
         topo_win.foreach_co( [&]( signal const& o ){
           outputs.push_back( o );
         });
+
+        // vSubData.emplace_back(n, il_opt, signals, outputs);
 
         uint32_t counter{0};
         ++st.num_substitutions;
@@ -363,6 +449,14 @@ public:
         windowing.resize( ntk.size() );
       }
     }
+/*
+    for (auto data : vSubData)
+    {
+        std::optional<mockturtle::abc_index_list> il_opt = data.il_opt;
+        std::vector<signal> signals = data.signals;
+        std::vector<signal> outputs = data.outputs;
+    }
+  */
 
     /* ensure that no dead nodes are reachable */
     assert( count_reachable_dead_nodes( ntk ) == 0u );
