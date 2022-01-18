@@ -256,5 +256,21 @@
       }
     ],
     "version": "646c27f"
+  },
+  {
+    "entries": [
+      {
+        "benchmark": "hyp",
+        "equivalent": true,
+        "est. gain": 9308,
+        "iterations": 4,
+        "real gain": 37233,
+        "resubs": 7982,
+        "runtime": 155.19694047,
+        "size_after": 204996,
+        "size_before": 214306
+      }
+    ],
+    "version": "4ead27f"
   }
 ]

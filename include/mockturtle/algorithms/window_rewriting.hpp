@@ -82,11 +82,12 @@ struct window_rewriting_params
 
   enum
   {
+    orig,
     sort_reTopological,
     sort_nDivs,
     non_descending_gain,
     sort_gain,
-  } window_ordering = sort_gain;
+  } window_ordering = orig;
 
   bool filter_cyclic_substitutions{false};
 }; /* window_rewriting_params */

@@ -56,7 +56,7 @@ int main()
   experiment<std::string, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, double, bool>
     exp( "window_rewriting", "benchmark", "size_before", "size_after", "est. gain", "real gain", "resubs", "iterations", "runtime", "equivalent" );
 
-  for ( auto const& benchmark : all_benchmarks( iscas | epfl_small ) )  // iscas | epfl_small
+  for ( auto const& benchmark : all_benchmarks( iscas | epfl ) )  // iscas | epfl_small
   {
     fmt::print( "[i] processing {}\n", benchmark );
 
@@ -71,7 +71,10 @@ int main()
     window_rewriting_params ps;
     ps.cut_size = 6u;
     ps.num_levels = 5u;
-    ps.filter_cyclic_substitutions = benchmark == "c432" ? true : false;
+    ps.filter_cyclic_substitutions = (benchmark == "c432" || benchmark == "sqrt") ? true : false;
+    
+    // Window Ordering Options: orig(default), sort_reTopological, sort_nDivs, non_descending_gain, sort_gain
+    ps.window_ordering = window_rewriting_params::orig;
 
     stats st{};
 
